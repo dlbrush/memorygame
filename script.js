@@ -1,17 +1,39 @@
 const gameContainer = document.getElementById("game");
+const startButton = document.getElementById("newGame");
+const scores = document.getElementById("scores");
+const currentScoreDisplay = document.getElementById("currentScore");
+const pairsInput = document.getElementById("pairs");
 
-const COLORS = [
-  "red",
-  "blue",
-  "green",
-  "orange",
-  "purple",
-  "red",
-  "blue",
-  "green",
-  "orange",
-  "purple"
-];
+//Initialize currentScore as 0
+let currentScore = 0;
+
+//Create function to create array of pairs of random colors
+function randomColors (pairs) {
+  let colors = [];
+  for (let i = 0; i < pairs; i++) {
+    let r = Math.floor(Math.random() * 256);
+    let g = Math.floor(Math.random() * 256);
+    let b = Math.floor(Math.random() * 256);
+    //Push twice to create a pair!
+    colors.push(`rgb(${r},${g},${b})`);
+    colors.push(`rgb(${r},${g},${b})`);
+  }
+  return colors;
+}
+
+//Writing a reusable function that adds the best score display, since we do that in two parts of the code
+function showBestScore(score) {
+  const bestScoreDisplay = document.createElement('span');
+  bestScoreDisplay.id = "bestScore"
+  bestScoreDisplay.innerText = `Best Score: ${score}`;
+  scores.append(bestScoreDisplay);
+}
+
+//If there is a bestScore, put it on the page to start, if not we'll add it later
+let bestScore = JSON.parse(localStorage.getItem('bestScore'));
+if (bestScore) {
+  showBestScore(bestScore);
+}
 
 // here is a helper function to shuffle an array
 // it returns the same array with values shuffled
@@ -36,7 +58,7 @@ function shuffle(array) {
   return array;
 }
 
-let shuffledColors = shuffle(COLORS);
+// let shuffledColors = shuffle(COLORS);
 
 // this function loops over the array of colors
 // it creates a new div and gives it a class with the value of the color
@@ -57,12 +79,15 @@ function createDivsForColors(colorArray) {
   }
 }
 
+//This var will be used to capture the first pick in a two-pick sequence for comparison. It will be cleared whenever two cards have been picked consecutively.
 let firstPick;
 
-// TODO: Implement this function!
 function handleCardClick(event) {
-  // you can use event.target to see which element was clicked
   console.log("you just clicked", event.target);
+
+  //Increase the score and display new one
+  currentScore++;
+  currentScoreDisplay.innerText = `Current Score: ${currentScore}`;
 
   //set the color of the clicked card
   event.target.style.backgroundColor = event.target.className;
@@ -77,8 +102,8 @@ function handleCardClick(event) {
 
     } else if (event.target.className !== firstPick.className) {
 
-      //Remove event handling from all divs while we wait for timeout
-      let frozenDivs = document.querySelectorAll("#game div");
+      //Remove event handling from all unmatched divs while we wait for timeout
+      let frozenDivs = document.querySelectorAll("#game div:not(.matched)");
       for (let div of frozenDivs) {
         div.removeEventListener('click', handleCardClick);
       }
@@ -95,15 +120,90 @@ function handleCardClick(event) {
 
     } else {
 
-      //If the two were a match, clear firstpick and go on to the next one!
+      //If the two were a match, remove eventListeners, add matched class, clear firstpick and go on to the next one!
+      firstPick.removeEventListener('click', handleCardClick);
+      firstPick.classList.add('matched')
+      event.target.removeEventListener('click', handleCardClick);
+      event.target.classList.add('matched');
       firstPick = "";
 
     }
 
   } else {
+    //If there is not an existing pick, then the targeted element is the first pick.
     firstPick = event.target;
+  }
+
+  //Check if the game has ended (all elements have matched class)
+  let matchedDivs = document.querySelectorAll('.matched');
+  let allDivs = document.querySelectorAll("#game div");
+  if (matchedDivs.length === allDivs.length) {
+
+    //Logic for setting best score
+    if (bestScore) {
+      //If new score is lower than existing best, store and display new score
+      if (currentScore < bestScore) {
+        localStorage.setItem('bestScore', currentScore);
+        let bestScoreDisplay = document.querySelector("#bestScore");
+        bestScoreDisplay.innerText = `Best Score: ${currentScore}`;
+      }
+    } else {
+      //If best score did not previously exist, this is now the best score! Create the display object.
+      bestScore = currentScore;
+      localStorage.setItem('bestScore', currentScore);
+      showBestScore(currentScore);
+    };
+
+    //Create play again button
+    const playAgain = document.createElement('button')
+    playAgain.id = "playagain";
+    playAgain.innerText = "Play again?";
+
+    //Add a listener to the button that will re-shuffle and re-set the divs and then clear the button
+    playAgain.addEventListener('click', function() {
+      //Save number of pairs we have now
+      let replayPairs = matchedDivs.length / 2;
+
+      //Remove existing divs
+      for (let div of matchedDivs) {
+        div.remove();
+      }
+      //Add divs back with the same number we just played
+      let shuffledColors = shuffle(randomColors(replayPairs));
+      createDivsForColors(shuffledColors);
+
+      //Remove play again button
+      playAgain.remove()
+      //Reset Score
+      currentScore = 0;
+      currentScoreDisplay.innerText = "Current Score: 0";
+    });
+
+    //Append button to the scores div
+    scores.append(playAgain);
   }
 }
 
 // when the DOM loads
-createDivsForColors(shuffledColors);
+startButton.addEventListener('click', function (event) {
+  event.preventDefault();
+  //Clear existing divs, if there are any
+  let existingDivs = document.querySelectorAll("#game div");
+  for (let div of existingDivs) {
+    div.remove();
+  };
+
+  //Clear score
+  currentScore = 0;
+  currentScoreDisplay.innerText = "Current Score: 0";
+
+  //If play again button is on-screen, remove it
+  let playAgain = document.getElementById("playagain");
+  if (playAgain) {
+    playAgain.remove();
+  }
+
+  //Create new divs
+  let shuffledColors = shuffle(randomColors(pairsInput.value));
+  createDivsForColors(shuffledColors);
+});

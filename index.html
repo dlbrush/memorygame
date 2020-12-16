@@ -7,6 +7,15 @@
   </head>
   <body>
     <h1>Memory Game!</h1>
+    <form id="startgameform">
+      <label for="cardnumber">Number of pairs (between 2-100): 
+        <input type="number" id="pairs" name="pairs" value="5" min="2" max="100">
+      </label>
+      <input type="submit" value="New game" id="newGame">
+    </form>
+    <div id="scores">
+      <span id="currentScore">Current Score: 0</span>
+    </div>
     <div id="game">
     </div>
     <script src="script.js"></script>
